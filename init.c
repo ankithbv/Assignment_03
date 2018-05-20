@@ -49,6 +49,9 @@ int read_parameters( const char *szFileName,       /* name of the file */
    READ_DOUBLE( szFileName, *GY );
    READ_DOUBLE( szFileName, *PI );
 
+   READ_INT   ( szFileName, *iproc ); //Reading iproc and jproc from the .dat file
+   READ_INT   ( szFileName, *jproc );
+
    *dx = *xlength / (double)(*imax);
    *dy = *ylength / (double)(*jmax);
 
@@ -56,9 +59,17 @@ int read_parameters( const char *szFileName,       /* name of the file */
 }
 
 void init_uvp(double UI, double VI, double PI, int imax, int jmax, double** U, double** V, double** P){
-	init_matrix(U ,0,imax+1 ,0, jmax+1, UI);
-	init_matrix(V ,0,imax+1 ,0, jmax+1, VI);
-	init_matrix(P ,0,imax+1 ,0, jmax+1, PI);
+	/* Horizontal velocity */
+	U = matrix(0, imax+1, 0, jmax+1);
+	init_matrix(U, 0, imax+1, 0, jmax+1, UI);
+
+	/* Vertical velocity */
+	V = matrix(0, imax+1, 0, jmax+1);
+	init_matrix(V, 0, imax+1, 0, jmax+1, VI);
+
+	/* Pressure */
+	*P = matrix(0, imax+1, 0, jmax+1);
+	init_matrix(P, 0, imax+1, 0, jmax+1, PI);
 }
 
 

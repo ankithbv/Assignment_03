@@ -66,17 +66,78 @@ int main(int argn, char** args){
                     	double GY;
 		  	const char *szFileName="cavity100.dat";       /* name of the file */
 
+			/* MPI variables */
+			int iproc = 0;
+			int jproc = 0;
+			int myrank = 0;
+			int il = 0;
+			int ir = 0;
+			int jb = 0;
+			int jt = 0;
+			int rank_l = 0;
+			int rank_r = 0;
+			int rank_b = 0;
+			int rank_t = 0;
+			int omg_i = 0;
+			int omg_j = 0;
+			int num_proc = 0;
+			int comm_size = 0;
+			int x_dim, y_dim;
+
+			/* Initialize MPI and begin parallel processes */
+			MPI_Init(&argn, &args);
+			MPI_Comm_size(MPI_COMM_WORLD, &num_proc);
+			MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
+
 		        //Reading the program configuration file using read_parameters()
-	 		int param = read_parameters(szFileName, &Re, &UI, &VI, &PI, &GX, &GY, &t_end, &xlength, &ylength, &dt, &dx, &dy, &imax, &jmax, &alpha, &omg, &tau, &itermax, &eps, &dt_value);
+	 		int param = read_parameters(szFileName, &Re, &UI, &VI, &PI, &GX, &GY, &t_end, &xlength, &ylength, &dt, &dx, &dy, &imax, &jmax, &alpha, &omg, &tau, &itermax, &eps, &dt_value, &iproc, &jproc);
 		        
 			param++; 		// Just using param so that C does not throw an error message
 
-		   	double **U = matrix(0,imax+1,0,jmax+1);		//Dynamically allocating memmory for matrices U,V,P, RS, F and G
+			/* Broadcast parameters to the remaining processes */
+			MPI_Bcast(&Re, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+			MPI_Bcast(&UI, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+			MPI_Bcast(&VI, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+			MPI_Bcast(&PI, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+			MPI_Bcast(&GX, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+			MPI_Bcast(&GY, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+			MPI_Bcast(&t_end, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+			MPI_Bcast(&xlength, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+			MPI_Bcast(&ylength, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+			MPI_Bcast(&dt, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+			MPI_Bcast(&dx, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+			MPI_Bcast(&dy, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+			MPI_Bcast(&imax, 1, MPI_INT, 0, MPI_COMM_WORLD);
+			MPI_Bcast(&jmax, 1, MPI_INT, 0, MPI_COMM_WORLD);
+			MPI_Bcast(&alpha, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+			MPI_Bcast(&omg, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+			MPI_Bcast(&tau, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+			MPI_Bcast(&itermax, 1, MPI_INT, 0, MPI_COMM_WORLD);
+			MPI_Bcast(&eps, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+			MPI_Bcast(&dt_value, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+			MPI_Bcast(&iproc, 1, MPI_INT, 0, MPI_COMM_WORLD);
+			MPI_Bcast(&jproc, 1, MPI_INT, 0, MPI_COMM_WORLD);
+
+		   	/*double **U = matrix(0,imax+1,0,jmax+1);		//Dynamically allocating memmory for matrices U,V,P, RS, F and G
 		  	double **V = matrix(0,imax+1,0,jmax+1); 
 		    	double **P = matrix(0,imax+1,0,jmax+1);
 		 	double **RS = matrix(0,imax+1,0,jmax+1);
 		 	double **F = matrix(0,imax+1,0,jmax+1);
-		 	double **G = matrix(0,imax+1,0,jmax+1);
+		 	double **G = matrix(0,imax+1,0,jmax+1);*/
+
+
+			/* Initialize process dependent variables */
+			init_parallel(iproc, jproc, imax, jmax, &myrank, &il, &ir, &jb, &jt, &rank_l,
+			    &rank_r, &rank_b, &rank_t, &omg_i, &omg_j, num_proc);
+
+			x_dim = ir - il + 1;
+			y_dim = jt - jb + 1;
+
+			/* Initialize matrices for velocity, pressure, rhs, etc. */
+			init_uvp(UI, VI, PI, x_dim, y_dim, U, V, P);
+			F = matrix(0, x_dim+1, 0, y_dim+1);
+			G = matrix(0, x_dim+1, 0, y_dim+1);
+			RS = matrix(0, x_dim+1, 0, y_dim+1);
 		 	
 		 	t=0;
 			n=0;
@@ -86,10 +147,10 @@ int main(int argn, char** args){
 			
 			while (t<t_end)
 			{
-				calculate_dt(Re,tau,&dt,dx,dy,imax,jmax,U,V);                                    //Calculating dt
-				boundaryvalues(imax,jmax,U,V);							 //Setting the boundary values for the next time step.
-				calculate_fg(Re,GX,GY,alpha,dt,dx,dy,imax,jmax,U,V,F,G);			 //Determining the values of F and G (diffusion and confection).
-				calculate_rs(dt,dx,dy,imax,jmax,F,G,RS);					 //Calculating the right hand side of the pressure equation.
+				calculate_dt(Re,tau,&dt,dx,dy,x_dim,y_dim,U,V);                                    //Calculating dt
+				boundaryvalues(x_dim,y_dim,U,V);							 //Setting the boundary values for the next time step.
+				calculate_fg(Re,GX,GY,alpha,dt,dx,dy,x_dim,y_dim,U,V,F,G);			 //Determining the values of F and G (diffusion and confection).
+				calculate_rs(dt,dx,dy,x_dim,y_dim,F,G,RS);					 //Calculating the right hand side of the pressure equation.
 				
 				it=0;
 				res = 1;
@@ -100,7 +161,7 @@ int main(int argn, char** args){
 					it=it+1;
 				}
 				
-				calculate_uv(dt,dx,dy,imax,jmax,U,V,F,G,P);   					//Calculating the velocity at the next time step.
+				calculate_uv(dt,dx,dy,x_dim,y_dim,U,V,F,G,P);   					//Calculating the velocity at the next time step.
 				if(t>=n1*dt_value){
 					write_vtkFile("file", n, xlength, ylength, imax, jmax, dx, dy, U, V, P);
 					n1 = n1 + 1;
@@ -111,12 +172,13 @@ int main(int argn, char** args){
 				
 			}
 
-			free_matrix(P, 0, imax+1, 0, jmax+1);
-			free_matrix(U, 0, imax+1, 0, jmax+1);
-			free_matrix(V, 0, imax+1, 0, jmax+1);
-			free_matrix(F, 0, imax+1, 0, jmax+1);
-			free_matrix(G, 0, imax+1, 0, jmax+1);
-			free_matrix(RS, 0, imax+1, 0, jmax+1);
+			/* Deallocate heap memory */
+			free_matrix(U, 0, x_dim+1, 0, y_dim+1);
+			free_matrix(V, 0, x_dim+1, 0, y_dim+1);
+			free_matrix(P, 0, x_dim+1, 0, y_dim+1);
+			free_matrix(F, 0, x_dim+1, 0, y_dim+1);
+			free_matrix(G, 0, x_dim+1, 0, y_dim+1);
+			free_matrix(RS, 0, x_dim+1, 0, y_dim+1);
 			
   return -1;
 }
