@@ -368,9 +368,11 @@ void free_matrix( double **m, int nrl, int nrh, int ncl, int nch )
 void init_matrix( double **m, int nrl, int nrh, int ncl, int nch, double a)
 {
    int i,j;
-   for( i = nrl; i <= nrh; i++)
-       for( j = ncl; j <= nch; j++)
+   for( i = nrl; i <= nrh; i++){
+       for( j = ncl; j <= nch; j++){
 	   m[i][j] = a;
+	   }
+   }
 }
 
 

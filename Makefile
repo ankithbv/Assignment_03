@@ -4,6 +4,7 @@ CFLAGS = -Wall -pedantic -Werror
 
 OBJ = 	helper.o\
       	init.o\
+	sor.o\
       	boundary_val.o\
       	uvp.o\
       	main.o\
@@ -24,5 +25,4 @@ init.o        : helper.h init.h
 boundary_val.o: helper.h boundary_val.h 
 uvp.o         : helper.h uvp.h
 visual.o      : helper.h
-
 main.o        : helper.h init.h boundary_val.h uvp.h visual.h

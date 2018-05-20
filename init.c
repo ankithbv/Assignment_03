@@ -25,6 +25,7 @@ int read_parameters( const char *szFileName,       /* name of the file */
 		    double *dt_value)           /* time for output */
 {
    READ_DOUBLE( szFileName, *xlength );
+
    READ_DOUBLE( szFileName, *ylength );
 
    READ_DOUBLE( szFileName, *Re    );
@@ -52,6 +53,12 @@ int read_parameters( const char *szFileName,       /* name of the file */
    *dy = *ylength / (double)(*jmax);
 
    return 1;
+}
+
+void init_uvp(double UI, double VI, double PI, int imax, int jmax, double** U, double** V, double** P){
+	init_matrix(U ,0,imax+1 ,0, jmax+1, UI);
+	init_matrix(V ,0,imax+1 ,0, jmax+1, VI);
+	init_matrix(P ,0,imax+1 ,0, jmax+1, PI);
 }
 
 

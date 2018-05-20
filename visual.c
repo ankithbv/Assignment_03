@@ -1,6 +1,6 @@
 #include "helper.h"
 #include "visual.h"
-#include <stdio.h>
+#include "stdio.h"
 
 
 void write_vtkFile(const char *szProblem,
