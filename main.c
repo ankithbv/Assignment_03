@@ -1,10 +1,15 @@
 #include "helper.h"
 #include "visual.h"
 #include "init.h"
-#include "stdio.h"
-#include "sor.h"
 #include "uvp.h"
 #include "boundary_val.h"
+#include "sor.h"
+#include "parallel.h"
+#include "string.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <mpi.h>
+
 
 /**
  * The main operation reads the configuration file, initializes the scenario and
@@ -90,9 +95,21 @@ int main(int argn, char** args){
 			MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
 
 		        //Reading the program configuration file using read_parameters()
-	 		int param = read_parameters(szFileName, &Re, &UI, &VI, &PI, &GX, &GY, &t_end, &xlength, &ylength, &dt, &dx, &dy, &imax, &jmax, &alpha, &omg, &tau, &itermax, &eps, &dt_value, &iproc, &jproc);
-		        
-			param++; 		// Just using param so that C does not throw an error message
+			if(myrank==0){
+		 		int param = read_parameters(szFileName, &Re, &UI, &VI, &PI, &GX, &GY, &t_end, &xlength, &ylength, &dt, &dx, &dy, &imax, &jmax, &alpha, &omg, &tau, &itermax, &eps, &dt_value, &iproc, &jproc);
+				
+				param++; 		// Just using param so that C does not throw an error message
+
+				if(readParamError != 1){
+					Programm_Stop("Input parameters potentially corrupt!");
+					return -1;
+				}
+				MPI_Comm_size(MPI_COMM_WORLD, &comm_size);
+				if(comm_size != (iproc*jproc)){
+					printf("The number of processes entered via 'mpirun -np %u' does not equal the size specified by the input file (iproc * jproc = %u)\n", comm_size, iproc*jproc);
+					return -1;
+				}
+			}
 
 			/* Broadcast parameters to the remaining processes */
 			MPI_Bcast(&Re, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
@@ -143,12 +160,12 @@ int main(int argn, char** args){
 			n=0;
 			int n1 = 0;
 
-			init_uvp(UI,VI,PI,imax,jmax,U,V,P);    //Initializing U, V and P
+			//init_uvp(UI,VI,PI,imax,jmax,U,V,P);    //Initializing U, V and P
 			
 			while (t<t_end)
 			{
 				calculate_dt(Re,tau,&dt,dx,dy,x_dim,y_dim,U,V);                                    //Calculating dt
-				boundaryvalues(x_dim,y_dim,U,V);							 //Setting the boundary values for the next time step.
+				boundaryvalues(x_dim, y_dim, U, V, rank_l, rank_r, rank_b, rank_t);		 //Setting the boundary values for the next time step.
 				calculate_fg(Re,GX,GY,alpha,dt,dx,dy,x_dim,y_dim,U,V,F,G);			 //Determining the values of F and G (diffusion and confection).
 				calculate_rs(dt,dx,dy,x_dim,y_dim,F,G,RS);					 //Calculating the right hand side of the pressure equation.
 				

@@ -1,30 +1,39 @@
 #include "boundary_val.h"
 
-void boundaryvalues(int imax,int jmax,double **U,double **V)
+void boundaryvalues(int imax,int jmax,double **U,double **V, int rank_l, int rank_r, int rank_b, int rank_t)
 {
-	for (int j =1; j<=jmax;++j)
-	{
-		//Horizontal velocities on Vertical Boundaries
-		U[0][j] = 0;
-		U[imax][j] = 0;
+	int i, j;
 
-		//Vertical Boundary conditions
-		 V[0][j]       = - V[1][j];
-		 V[imax+1][j]  = - V[imax][j];
-
-
+	/* For bottom boundary */
+	if (rank_b == MPI_PROC_NULL){
+		for(i = 1; i < imax+1; i++){
+			U[i][0]	= -U[i][1];
+			V[i][0]	= 0;
+		}
 	}
 
-	for(int i = 0; i<=imax; ++i)
-	{
-		//Vertical Velocities on Horizontal Boundaries
-		 V[i][0]       = 0;
-		 V[i][jmax]    = 0;
+	/* For top boundary */
+	if (rank_t == MPI_PROC_NULL){
+		for(i = 1; i < imax+1; i++){
+			U[i][jmax+1] = 2.0-U[i][jmax];
+			V[i][jmax]	= 0;
+		}
+	}
 
-		 //Horizontal Boundary Conditions
-		 U[i][0]       = - U[i][1];
-		 
-		 U[i][jmax+1]  = 2-U[i][jmax];
+	/* for left boundary*/
+	if (rank_l == MPI_PROC_NULL){
+		for(j = 1; j < jmax+1; j++){
+			U[0][j] = 0;
+			V[0][j]	= -V[1][j];
+		}
+	}
+
+	/* for right wall */
+	if (rank_r == MPI_PROC_NULL){
+		for(j = 1; j < jmax+1; j++){
+			U[imax][j] = 0;
+			V[imax+1][j]	= -V[imax][j];
+		}
 	}
 }
 

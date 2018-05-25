@@ -9,7 +9,11 @@ void boundaryvalues(
   int imax,
   int jmax,
   double **U,
-  double **V
+  double **V,
+  int rank_l,
+  int rank_r,
+  int rank_b,
+  int rank_t
 );
 
 #endif
