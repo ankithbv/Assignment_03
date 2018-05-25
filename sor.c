@@ -90,10 +90,6 @@ void sor(
               ( (P[i+1][j]-2.0*P[i][j]+P[i-1][j])/(dx*dx) + ( P[i][j+1]-2.0*P[i][j]+P[i][j-1])/(dy*dy) - RS[i][j]);
     }
   }
-  rloc = rloc/(imax*jmax);
-  rloc = sqrt(rloc);
-  /* set residual */
-  *res = rloc;
 
 
   /* Sum the squares of all local residuals then square root that sum for global residual */
