@@ -101,6 +101,7 @@ void calculate_dt(
 	double temp1,temp2,temp3,temp4;
     	double U1=fabs(U[0][0]);
 	double V1=fabs(V[0][0]);
+	double U_max, V_max;
 	
         for(int c=0 ; c <=imax ; c++ ){
   	      for(int d= 0 ; d <=jmax ; d++ ){
@@ -108,13 +109,17 @@ void calculate_dt(
           		  U1= U[c][d];							       //Calculating Umax
       		 }
 		 if ( fabs(V[c][d]) > fabs(V1) ){
-          		  V1= V[c][d];							       //Calculating Vmax						    				
+          		  V1= V[c][d];							    //Calculating Vmax						    				
                  }
   	       }
 	}
+
+	MPI_Allreduce(&U1, &U_max,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
+	MPI_Allreduce(&V1, &V_max,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
+
 	temp1=((Re/2)*(dx*dx)*(dy*dy))/((dx*dx)+(dy*dy)); 
-        temp2=(dx)/fabs(U1);
-        temp3=(dy)/fabs(V1);
+        temp2=(dx)/fabs(U_max);
+        temp3=(dy)/fabs(V_max);
         temp4=fmin(temp1,temp2);
         *dt=tau*fmin(temp4,temp3);							       // Calculating dt with tau belongs to [0,1]
     
@@ -136,7 +141,7 @@ void calculate_uv(
   double **P
 )
 {
-	
+	// we may have to change limits of i and j
 	for (int i=1; i<=imax-1; i++){
 		for (int j=1; j<=jmax; j++){
 			U[i][j] = F[i][j] - (dt/dx)*(P[i+1][j] - P[i][j]);			//Updating the U components of velocity
