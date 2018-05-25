@@ -135,13 +135,6 @@ int main(int argn, char** args){
 			MPI_Bcast(&iproc, 1, MPI_INT, 0, MPI_COMM_WORLD);
 			MPI_Bcast(&jproc, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
-		   	/*double **U = matrix(0,imax+1,0,jmax+1);		//Dynamically allocating memmory for matrices U,V,P, RS, F and G
-		  	double **V = matrix(0,imax+1,0,jmax+1); 
-		    	double **P = matrix(0,imax+1,0,jmax+1);
-		 	double **RS = matrix(0,imax+1,0,jmax+1);
-		 	double **F = matrix(0,imax+1,0,jmax+1);
-		 	double **G = matrix(0,imax+1,0,jmax+1);*/
-
 
 			/* Initialize process dependent variables */
 			init_parallel(iproc, jproc, imax, jmax, &myrank, &il, &ir, &jb, &jt, &rank_l,
@@ -150,25 +143,29 @@ int main(int argn, char** args){
 			x_dim = ir - il + 1;
 			y_dim = jt - jb + 1;
 	
-			double **U ;		//Dynamically allocating memmory for matrices U,V,P, RS, F and G
-		  	double **V ; 
-		    	double **P ;
+			double **P = matrix(il-1,ir+1,jb-1,jt+1);
+			double **U = matrix(il-2,ir+1,jb-1,jt+1); //Dynamically allocating memmory for matrices U,V,P, RS, F and G
+			double **V = matrix(il-1,ir+1,jb-2,jt+1); 
+		 	double **F = matrix(il-2,ir+1,jb-1,jt+1); 
+			double **G = matrixil-1,ir+1,jb-2,jt+1);    	
+		 	double **RS = matrix(il,ir,jb,jt);
 
 			/* Initialize matrices for velocity, pressure, rhs, etc. */
 			init_uvp(UI, VI, PI, x_dim, y_dim, U, V, P);
-			F = matrix(0, x_dim+1, 0, y_dim+1);
-			G = matrix(0, x_dim+1, 0, y_dim+1);
-			RS = matrix(0, x_dim+1, 0, y_dim+1);
+
 		 	
 		 	t=0;
 			n=0;
 			int n1 = 0;
-
+			int chunk = 0;
+			int residue;
+			double* bufSend = 0;
+			double* bufRecv = 0;
 			//init_uvp(UI,VI,PI,imax,jmax,U,V,P);    //Initializing U, V and P
 			
 			while (t<t_end)
 			{
-				calculate_dt(Re,tau,&dt,dx,dy,x_dim,y_dim,U,V);                                    //Calculating dt
+				
 				boundaryvalues(x_dim, y_dim, U, V, rank_l, rank_r, rank_b, rank_t);		 //Setting the boundary values for the next time step.
 				calculate_fg(Re,GX,GY,alpha,dt,dx,dy,x_dim,y_dim,U,V,F,G);			 //Determining the values of F and G (diffusion and confection).
 				calculate_rs(dt,dx,dy,x_dim,y_dim,F,G,RS);					 //Calculating the right hand side of the pressure equation.
@@ -178,11 +175,24 @@ int main(int argn, char** args){
 			
 				while (it<itermax && res>eps)  //Iterating the pressure poisson equation until the residual becomes smaller than eps or the maximal number of iterations is performed. 
 				{
-					sor(omg,dx,dy,imax,jmax,P,RS,&res);      				//Within the iteration loop the operation sor() is used.
+					sor(omg,dx,dy,imax,jmax,P,RS,&res,il,ir,jb,jt,rank_l,rank_r,rank_b,rank_t);      				//Within the iteration loop the operation sor() is used.
+
+ 			/* Communicate between processes regarding pressure boundaries */
+			pressure_comm(P, il, ir, jb, jt, rank_l, rank_r, rank_b, rank_t, bufSend, bufRecv, &status, chunk);
+			  /* Sum the squares of all local residuals then square root that sum for global residual */
+				
+				MPI_Allreduce(res, &residue, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+				residue = sqrt((residue)/(imax*jmax));
 					it=it+1;
 				}
 				
 				calculate_uv(dt,dx,dy,x_dim,y_dim,U,V,F,G,P);   					//Calculating the velocity at the next time step.
+
+				
+				void uv_comm (U,V, il,ir, jb, jt, rank_l, rank_r, rank_b, rank_t,bufSend,bufRecv, &status, chunk)
+
+				calculate_dt(Re,tau,&dt,dx,dy,x_dim,y_dim,U,V); 
+
 				if(t>=n1*dt_value){
 					write_vtkFile("file", n, xlength, ylength, imax, jmax, dx, dy, U, V, P);
 					n1 = n1 + 1;

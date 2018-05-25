@@ -240,6 +240,8 @@ double *bufSend,double *bufRecv, MPI_Status *status, int chunk)
 			counter++;
 		}
 	}
+	free(bufSend);
+	free(bufRecv);
 }
 
 
@@ -403,6 +405,9 @@ double *bufSend,double *bufRecv, MPI_Status *status, int chunk)
 		}
 
 	}
+	free(bufSend);
+	free(bufRecv);
+
 }
 
 
