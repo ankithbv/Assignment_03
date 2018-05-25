@@ -149,6 +149,10 @@ int main(int argn, char** args){
 
 			x_dim = ir - il + 1;
 			y_dim = jt - jb + 1;
+	
+			double **U ;		//Dynamically allocating memmory for matrices U,V,P, RS, F and G
+		  	double **V ; 
+		    	double **P ;
 
 			/* Initialize matrices for velocity, pressure, rhs, etc. */
 			init_uvp(UI, VI, PI, x_dim, y_dim, U, V, P);
