@@ -1,5 +1,6 @@
 #include "sor.h"
 #include "math.h"
+#include <mpi.h>
 
 void sor(
   double omg,

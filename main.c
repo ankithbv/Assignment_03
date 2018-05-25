@@ -100,7 +100,7 @@ int main(int argn, char** args){
 				
 				param++; 		// Just using param so that C does not throw an error message
 
-				if(readParamError != 1){
+				if(param != 1){
 					Programm_Stop("Input parameters potentially corrupt!");
 					return -1;
 				}
@@ -147,7 +147,7 @@ int main(int argn, char** args){
 			double **U = matrix(il-2,ir+1,jb-1,jt+1); //Dynamically allocating memmory for matrices U,V,P, RS, F and G
 			double **V = matrix(il-1,ir+1,jb-2,jt+1); 
 		 	double **F = matrix(il-2,ir+1,jb-1,jt+1); 
-			double **G = matrixil-1,ir+1,jb-2,jt+1);    	
+			double **G = matrix(il-1,ir+1,jb-2,jt+1);    	
 		 	double **RS = matrix(il,ir,jb,jt);
 
 			/* Initialize matrices for velocity, pressure, rhs, etc. */
@@ -161,6 +161,7 @@ int main(int argn, char** args){
 			int residue;
 			double* bufSend = 0;
 			double* bufRecv = 0;
+			MPI_Status status;
 			//init_uvp(UI,VI,PI,imax,jmax,U,V,P);    //Initializing U, V and P
 			
 			while (t<t_end)
@@ -181,15 +182,15 @@ int main(int argn, char** args){
 			pressure_comm(P, il, ir, jb, jt, rank_l, rank_r, rank_b, rank_t, bufSend, bufRecv, &status, chunk);
 			  /* Sum the squares of all local residuals then square root that sum for global residual */
 				
-				MPI_Allreduce(res, &residue, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+				MPI_Allreduce(&res, &residue, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 				residue = sqrt((residue)/(imax*jmax));
 					it=it+1;
 				}
 				
-				calculate_uv(dt,dx,dy,x_dim,y_dim,U,V,F,G,P);   					//Calculating the velocity at the next time step.
+				calculate_uv(dt,dx,dy,x_dim,y_dim,U,V,F,G,P);   //Calculating the velocity at the next time step.
 
 				
-				void uv_comm (U,V, il,ir, jb, jt, rank_l, rank_r, rank_b, rank_t,bufSend,bufRecv, &status, chunk)
+				void uv_comm(U, V, il, ir, jb, jt, rank_l, rank_r, rank_b, rank_t, bufSend, bufRecv, &status, chunk);
 
 				calculate_dt(Re,tau,&dt,dx,dy,x_dim,y_dim,U,V); 
 
