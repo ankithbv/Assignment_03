@@ -22,7 +22,8 @@ int read_parameters( const char *szFileName,       /* name of the file */
                     int  *itermax,             /* max. number of iterations  */
 		                               /* for pressure per time step */
                     double *eps,               /* accuracy bound for pressure*/
-		    double *dt_value)           /* time for output */
+		    double *dt_value,		/* time for output */
+		    int *iproc, int *jproc)           
 {
    READ_DOUBLE( szFileName, *xlength );
 
@@ -60,15 +61,14 @@ int read_parameters( const char *szFileName,       /* name of the file */
 
 void init_uvp(double UI, double VI, double PI, int imax, int jmax, double** U, double** V, double** P){
 	/* Horizontal velocity */
-	U = matrix(0, imax+1, 0, jmax+1);
 	init_matrix(U, 0, imax+1, 0, jmax+1, UI);
 
 	/* Vertical velocity */
-	V = matrix(0, imax+1, 0, jmax+1);
+
 	init_matrix(V, 0, imax+1, 0, jmax+1, VI);
 
 	/* Pressure */
-	*P = matrix(0, imax+1, 0, jmax+1);
+
 	init_matrix(P, 0, imax+1, 0, jmax+1, PI);
 }
 

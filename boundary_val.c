@@ -1,4 +1,5 @@
 #include "boundary_val.h"
+#include <mpi.h>
 
 void boundaryvalues(int imax,int jmax,double **U,double **V, int rank_l, int rank_r, int rank_b, int rank_t)
 {
