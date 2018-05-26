@@ -1,6 +1,5 @@
 #include "sor.h"
 #include "math.h"
-#include <mpi.h>
 
 void sor(
   double omg,
@@ -26,6 +25,7 @@ void sor(
   double *bufSend ;
 	double *bufRecv;
 	MPI_Status status;
+	int chunk = 0;
 	int x_dim = ir - il + 1;
 	int y_dim = jt - jb + 1;
 
@@ -79,6 +79,8 @@ void sor(
     }
   }
 
+ /* Communicate between processes regarding pressure boundaries */
+	pressure_comm(P, il, ir, jb, jt, rank_l, rank_r, rank_b, rank_t, bufSend, bufRecv, &status, chunk);
 
   /* compute the residual */
   rloc = 0;
@@ -88,6 +90,10 @@ void sor(
               ( (P[i+1][j]-2.0*P[i][j]+P[i-1][j])/(dx*dx) + ( P[i][j+1]-2.0*P[i][j]+P[i][j-1])/(dy*dy) - RS[i][j]);
     }
   }
-  *res= rloc;
 
+
+  /* Sum the squares of all local residuals then square root that sum for global residual */
+	MPI_Allreduce(&rloc, res, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+	*res = sqrt((*res)/(imax*jmax));
 }
+

@@ -25,6 +25,7 @@ void sor(
   int rank_r,
   int rank_b,
   int rank_t
+)
 );
 
 
