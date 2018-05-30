@@ -45,13 +45,13 @@
  * - calculate_uv() Calculate the velocity at the next time step.
  */	
 int main(int argn, char** args){
-			double xlength;           /* length of the domain x-dir.*/
+						double xlength;           /* length of the domain x-dir.*/
                     	double ylength;           /* length of the domain y-dir.*/
                     	int  imax;                /* number of cells x-direction*/
                     	int  jmax;                /* number of cells y-direction*/
                     	double dx;                /* length of a cell x-dir. */
                     	double dy;                /* length of a cell y-dir. */
-                   	double t ;                /* gravitation y-direction */
+                   		double t ;                /* gravitation y-direction */
                     	double t_end;             /* end time */
                     	double dt;                /* time step */
                     	double tau;               /* safety factor for time step*/
@@ -66,10 +66,10 @@ int main(int argn, char** args){
                     	double Re;                /* reynolds number   */
                     	double UI;                /* velocity x-direction */
                     	double VI;                /* velocity y-direction */
-                   	double PI;                /* pressure */
+                   		double PI;                /* pressure */
                     	double GX;                /* gravitation x-direction */
                     	double GY;
-		  	const char *szFileName="cavity100.dat";       /* name of the file */
+		  				const char *szFileName="cavity100.dat";       /* name of the file */
 
 			/* MPI variables */
 			int iproc = 0;
@@ -99,7 +99,7 @@ int main(int argn, char** args){
 		 		int param = read_parameters(szFileName, &Re, &UI, &VI, &PI, &GX, &GY, &t_end, &xlength, &ylength, &dt, &dx, &dy, &imax, &jmax, &alpha, &omg, &tau, &itermax, &eps, &dt_value, &iproc, &jproc);
 				printf("Parameter Read: (main.c)  %d \n",myrank);
 				param++; 		// Just using param so that C does not throw an error message
-				printf("Parameter : (main.c)  %d \n",param);
+				
 				param=comm_size;
 				/*if(param != 1){
 					Programm_Stop("Input parameters potentially corrupt!");
@@ -111,6 +111,7 @@ int main(int argn, char** args){
 					return -1;
 				}*/
 			}
+			printf("Broadcasting all variables :rank = %d : (main.c)\n ",myrank);
 
 			/* Broadcast parameters to the remaining processes */
 			MPI_Bcast(&Re, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
@@ -136,6 +137,7 @@ int main(int argn, char** args){
 			MPI_Bcast(&iproc, 1, MPI_INT, 0, MPI_COMM_WORLD);
 			MPI_Bcast(&jproc, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
+			printf("Init_parallel : rank = %d : (main.c)\n ",myrank);
 
 			/* Initialize process dependent variables */
 			init_parallel(iproc, jproc, imax, jmax, &myrank, &il, &ir, &jb, &jt, &rank_l,
@@ -143,17 +145,17 @@ int main(int argn, char** args){
 
 			x_dim = ir - il + 1;
 			y_dim = jt - jb + 1;
-	
+			printf("Creating matrices : rank = %d : (main.c)\n ",myrank);
 			double **P = matrix(il-1,ir+1,jb-1,jt+1);
 			double **U = matrix(il-2,ir+1,jb-1,jt+1); //Dynamically allocating memmory for matrices U,V,P, RS, F and G
 			double **V = matrix(il-1,ir+1,jb-2,jt+1); 
 		 	double **F = matrix(il-2,ir+1,jb-1,jt+1); 
 			double **G = matrix(il-1,ir+1,jb-2,jt+1);    	
 		 	double **RS = matrix(il,ir,jb,jt);
-
+			printf("Init_uvp by rank = %d in domain:%dx%d (main.c)\n ",myrank, omg_i, omg_j);
 			/* Initialize matrices for velocity, pressure, rhs, etc. */
 			init_uvp(UI, VI, PI, x_dim, y_dim, U, V, P);
-
+			printf("Init_uvp completed by rank = %d in domain:%dx%d (main.c)\n \n",myrank, omg_i, omg_j);
 		 	
 		 	t=0;
 			n=0;
@@ -164,35 +166,44 @@ int main(int argn, char** args){
 			double* bufRecv = 0;
 			MPI_Status status;
 			//init_uvp(UI,VI,PI,imax,jmax,U,V,P);    //Initializing U, V and P
-			
+			printf("Starting while loop for simulation : rank = %d : (main.c)\n ",myrank);
 			while (t<t_end)
 			{
-				
+				printf("boundaryvalues : rank = %d : (main.c)\n ",myrank);
 				boundaryvalues(x_dim, y_dim, U, V, rank_l, rank_r, rank_b, rank_t);		 //Setting the boundary values for the next time step.
+				printf("calculating Fg : rank = %d : (main.c)\n ",myrank);
 				calculate_fg(Re,GX,GY,alpha,dt,dx,dy,x_dim,y_dim,U,V,F,G);			 //Determining the values of F and G (diffusion and confection).
+				printf("calculating RS : rank = %d : (main.c)\n ",myrank);
 				calculate_rs(dt,dx,dy,x_dim,y_dim,F,G,RS);					 //Calculating the right hand side of the pressure equation.
 				
 				it=0;
 				res = 1;
-			
+				printf("Entering while loop of SOR : rank = %d in domain:%dx%d (main.c)\n \n ",myrank, omg_i, omg_j);
 				while (it<itermax && res>eps)  //Iterating the pressure poisson equation until the residual becomes smaller than eps or the maximal number of iterations is performed. 
 				{
+					printf("Entering SOR.c : rank = %d in domain:%dx%d (main.c)\n \n",myrank, omg_i, omg_j);
 					sor(omg,dx,dy,imax,jmax,P,RS,&res,il,ir,jb,jt,rank_l,rank_r,rank_b,rank_t);      				//Within the iteration loop the operation sor() is used.
 
- 			/* Communicate between processes regarding pressure boundaries */
-			pressure_comm(P, il, ir, jb, jt, rank_l, rank_r, rank_b, rank_t, bufSend, bufRecv, &status, chunk);
-			  /* Sum the squares of all local residuals then square root that sum for global residual */
+ 					/* Communicate between processes regarding pressure boundaries */
+					printf("Entering pressure_comm.c : rank = %d in domain:%dx%d (main.c)\n \n",myrank, omg_i, omg_j);
+					pressure_comm(P, il, ir, jb, jt, rank_l, rank_r, rank_b, rank_t, bufSend, bufRecv, &status, chunk);
+			 		 /* Sum the squares of all local residuals then square root that sum for global residual */
 				
-				MPI_Allreduce(&res, &residue, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-				residue = sqrt((residue)/(imax*jmax));
+					printf("Exiting pressure_comm.c : rank = %d in domain:%dx%d (main.c)\n \n",myrank, omg_i, omg_j);
+
+					printf("Begin ALLREDUCE : rank = %d in domain:%dx%d (main.c)\n ",myrank, omg_i, omg_j);
+					MPI_Allreduce(&res, &residue, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+					residue = sqrt((residue)/(imax*jmax));
 					it=it+1;
+					printf("Ending ALLREDUCE : rank = %d in domain:%dx%d (main.c)\n \n",myrank, omg_i, omg_j);
 				}
-				
+				printf("Exiting while loop of SOR : rank = %d in domain: %dx%d (main.c)\n \n",myrank, omg_i, omg_j);
+				printf("Calculate UV : rank = %d in domain:%dx%d (main.c)\n ",myrank, omg_i, omg_j);
 				calculate_uv(dt,dx,dy,x_dim,y_dim,U,V,F,G,P);   //Calculating the velocity at the next time step.
 
-				
+				printf("UV_comm : rank = %d in domain: %dx%d (main.c)\n \n",myrank, omg_i, omg_j);
 				uv_comm(U, V, il, ir, jb, jt, rank_l, rank_r, rank_b, rank_t, bufSend, bufRecv, &status, chunk);
-
+				printf("Calculating dt : rank = %d in domain:%dx%d (main.c)\n \n",myrank, omg_i, omg_j);
 				calculate_dt(Re,tau,&dt,dx,dy,x_dim,y_dim,U,V); 
 
 				if(t>=n1*dt_value){
@@ -204,6 +215,7 @@ int main(int argn, char** args){
 				n=n+1;
 				
 			}
+			printf("Exiting while loop for simulation : rank = %d in domain:%dx%d (main.c)\n \n",myrank, omg_i, omg_j);
 
 			/* Deallocate heap memory */
 			free_matrix(U, 0, x_dim+1, 0, y_dim+1);
