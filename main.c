@@ -142,16 +142,16 @@ int main(int argn, char** args){
 			/* Initialize process dependent variables */
 			init_parallel(iproc, jproc, imax, jmax, &myrank, &il, &ir, &jb, &jt, &rank_l,
 			    &rank_r, &rank_b, &rank_t, &omg_i, &omg_j, num_proc);
-
+			printf("Rank : %d, Omg : %dx%d, ilxir : %dx%d, jbxjt : %dx%d ",myrank, omg_i, omg_j, il,ir,jb,jt);
 			x_dim = ir - il + 1;
 			y_dim = jt - jb + 1;
 			printf("Creating matrices : rank = %d : (main.c)\n ",myrank);
-			double **P = matrix(il-1,ir+1,jb-1,jt+1);
-			double **U = matrix(il-2,ir+1,jb-1,jt+1); //Dynamically allocating memmory for matrices U,V,P, RS, F and G
-			double **V = matrix(il-1,ir+1,jb-2,jt+1); 
-		 	double **F = matrix(il-2,ir+1,jb-1,jt+1); 
-			double **G = matrix(il-1,ir+1,jb-2,jt+1);    	
-		 	double **RS = matrix(il,ir,jb,jt);
+			double **P = matrix(0, x_dim+1, 0, y_dim+1);
+			double **U = matrix(0, x_dim+1, 0, y_dim+1); //Dynamically allocating memmory for matrices U,V,P, RS, F and G
+			double **V = matrix(0, x_dim+1, 0, y_dim+1); 
+		 	double **F = matrix(0, x_dim+1, 0, y_dim+1); 
+			double **G = matrix(0, x_dim+1, 0, y_dim+1);    	
+		 	double **RS = matrix(0, x_dim+1, 0, y_dim+1);
 			printf("Init_uvp by rank = %d in domain:%dx%d (main.c)\n ",myrank, omg_i, omg_j);
 			/* Initialize matrices for velocity, pressure, rhs, etc. */
 			init_uvp(UI, VI, PI, x_dim, y_dim, U, V, P);
@@ -190,7 +190,7 @@ int main(int argn, char** args){
 			 		 /* Sum the squares of all local residuals then square root that sum for global residual */
 				
 					printf("Exiting pressure_comm.c : rank = %d in domain:%dx%d (main.c)\n \n",myrank, omg_i, omg_j);
-
+					Programm_Sync("Synchronising all the threads for calculating residue");
 					printf("Begin ALLREDUCE : rank = %d in domain:%dx%d (main.c)\n ",myrank, omg_i, omg_j);
 					MPI_Allreduce(&res, &residue, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 					residue = sqrt((residue)/(imax*jmax));
@@ -200,20 +200,21 @@ int main(int argn, char** args){
 				printf("Exiting while loop of SOR : rank = %d in domain: %dx%d (main.c)\n \n",myrank, omg_i, omg_j);
 				printf("Calculate UV : rank = %d in domain:%dx%d (main.c)\n ",myrank, omg_i, omg_j);
 				calculate_uv(dt,dx,dy,x_dim,y_dim,U,V,F,G,P);   //Calculating the velocity at the next time step.
-
+				
 				printf("UV_comm : rank = %d in domain: %dx%d (main.c)\n \n",myrank, omg_i, omg_j);
 				uv_comm(U, V, il, ir, jb, jt, rank_l, rank_r, rank_b, rank_t, bufSend, bufRecv, &status, chunk);
 				printf("Calculating dt : rank = %d in domain:%dx%d (main.c)\n \n",myrank, omg_i, omg_j);
+				Programm_Sync("Synchronising all the threads for calculating dt");
 				calculate_dt(Re,tau,&dt,dx,dy,x_dim,y_dim,U,V); 
 
-				if(t>=n1*dt_value){
+				/*if(t>=n1*dt_value){
 					write_vtkFile("file", n, xlength, ylength, imax, jmax, dx, dy, U, V, P);
 					n1 = n1 + 1;
-				}
+				}*/
 				
 				t=t+dt;
 				n=n+1;
-				
+				n1 = n1 + 1;
 			}
 			printf("Exiting while loop for simulation : rank = %d in domain:%dx%d (main.c)\n \n",myrank, omg_i, omg_j);
 
