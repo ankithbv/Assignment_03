@@ -45,13 +45,13 @@
  * - calculate_uv() Calculate the velocity at the next time step.
  */	
 int main(int argn, char** args){
-						double xlength;           /* length of the domain x-dir.*/
+			double xlength;           /* length of the domain x-dir.*/
                     	double ylength;           /* length of the domain y-dir.*/
                     	int  imax;                /* number of cells x-direction*/
                     	int  jmax;                /* number of cells y-direction*/
                     	double dx;                /* length of a cell x-dir. */
                     	double dy;                /* length of a cell y-dir. */
-                   		double t ;                /* gravitation y-direction */
+                   	double t ;                /* gravitation y-direction */
                     	double t_end;             /* end time */
                     	double dt;                /* time step */
                     	double tau;               /* safety factor for time step*/
@@ -66,11 +66,12 @@ int main(int argn, char** args){
                     	double Re;                /* reynolds number   */
                     	double UI;                /* velocity x-direction */
                     	double VI;                /* velocity y-direction */
-                   		double PI;                /* pressure */
+                   	double PI;                /* pressure */
                     	double GX;                /* gravitation x-direction */
                     	double GY;
-		  				const char *szFileName="cavity100.dat";       /* name of the file */
-
+		  	const char *szFileName="cavity100.dat";       /* name of the file */
+			char *problemOutput = malloc(strlen(szFileName) + 10);
+			char buffer[4] = {0};
 			/* MPI variables */
 			int iproc = 0;
 			int jproc = 0;
@@ -93,10 +94,17 @@ int main(int argn, char** args){
 			MPI_Init(&argn, &args);
 			MPI_Comm_size(MPI_COMM_WORLD, &num_proc);
 			MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
+			
+			/* Append name for output vtk file */
+			strcpy(problemOutput, szFileName);
+			strcat(problemOutput, "_output.");
+			sprintf(buffer, "%i", myrank);
+			strcat(problemOutput, buffer);
 
 		        //Reading the program configuration file using read_parameters()
 			if(myrank==0){
 		 		int param = read_parameters(szFileName, &Re, &UI, &VI, &PI, &GX, &GY, &t_end, &xlength, &ylength, &dt, &dx, &dy, &imax, &jmax, &alpha, &omg, &tau, &itermax, &eps, &dt_value, &iproc, &jproc);
+				//printf("dx = :%d and dy = %d", dx,dy);
 				printf("Parameter Read: (main.c)  %d \n",myrank);
 				param++; 		// Just using param so that C does not throw an error message
 				
@@ -111,6 +119,7 @@ int main(int argn, char** args){
 					return -1;
 				}*/
 			}
+			
 			printf("Broadcasting all variables :rank = %d : (main.c)\n ",myrank);
 
 			/* Broadcast parameters to the remaining processes */
@@ -161,7 +170,7 @@ int main(int argn, char** args){
 			n=0;
 			int n1 = 0;
 			int chunk = 0;
-			int residue;
+			//int residue;
 			double* bufSend = 0;
 			double* bufRecv = 0;
 			MPI_Status status;
@@ -181,22 +190,29 @@ int main(int argn, char** args){
 				printf("Entering while loop of SOR : rank = %d in domain:%dx%d (main.c)\n \n ",myrank, omg_i, omg_j);
 				while (it<itermax && res>eps)  //Iterating the pressure poisson equation until the residual becomes smaller than eps or the maximal number of iterations is performed. 
 				{
-					printf("Entering SOR.c : rank = %d in domain:%dx%d (main.c)\n \n",myrank, omg_i, omg_j);
-					sor(omg,dx,dy,imax,jmax,P,RS,&res,il,ir,jb,jt,rank_l,rank_r,rank_b,rank_t);      				//Within the iteration loop the operation sor() is used.
+					sor(omg, dx, dy, P, RS, &res, il, ir, jb, jt, rank_l, rank_r, rank_b, rank_t, imax, jmax);
+					it++;
+				}
+				if (myrank == 0)
+				{
+					printf("res=%f, it=%u, t=%f, dt=%f\n", res, it, t, dt);
+				}
+					/*printf("Entering SOR.c : rank = %d in domain:%dx%d (main.c)\n \n",myrank, omg_i, omg_j);
+					sor(omg,dx,dy,imax,jmax,P,RS,&res,il,ir,jb,jt,rank_l,rank_r,rank_b,rank_t);  */    				//Within the iteration loop the operation sor() is used.
 
  					/* Communicate between processes regarding pressure boundaries */
-					printf("Entering pressure_comm.c : rank = %d in domain:%dx%d (main.c)\n \n",myrank, omg_i, omg_j);
-					pressure_comm(P, il, ir, jb, jt, rank_l, rank_r, rank_b, rank_t, bufSend, bufRecv, &status, chunk);
+					/*printf("Entering pressure_comm.c : rank = %d in domain:%dx%d (main.c)\n \n",myrank, omg_i, omg_j);
+					pressure_comm(P, il, ir, jb, jt, rank_l, rank_r, rank_b, rank_t, bufSend, bufRecv, &status, chunk);*/
 			 		 /* Sum the squares of all local residuals then square root that sum for global residual */
 				
-					printf("Exiting pressure_comm.c : rank = %d in domain:%dx%d (main.c)\n \n",myrank, omg_i, omg_j);
+					/*printf("Exiting pressure_comm.c : rank = %d in domain:%dx%d (main.c)\n \n",myrank, omg_i, omg_j);
 					Programm_Sync("Synchronising all the threads for calculating residue");
 					printf("Begin ALLREDUCE : rank = %d in domain:%dx%d (main.c)\n ",myrank, omg_i, omg_j);
 					MPI_Allreduce(&res, &residue, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 					residue = sqrt((residue)/(imax*jmax));
 					it=it+1;
-					printf("Ending ALLREDUCE : rank = %d in domain:%dx%d (main.c)\n \n",myrank, omg_i, omg_j);
-				}
+					printf("Ending ALLREDUCE : rank = %d in domain:%dx%d (main.c)\n \n",myrank, omg_i, omg_j);*/
+				
 				printf("Exiting while loop of SOR : rank = %d in domain: %dx%d (main.c)\n \n",myrank, omg_i, omg_j);
 				printf("Calculate UV : rank = %d in domain:%dx%d (main.c)\n ",myrank, omg_i, omg_j);
 				calculate_uv(dt,dx,dy,x_dim,y_dim,U,V,F,G,P);   //Calculating the velocity at the next time step.
@@ -207,14 +223,14 @@ int main(int argn, char** args){
 				Programm_Sync("Synchronising all the threads for calculating dt");
 				calculate_dt(Re,tau,&dt,dx,dy,x_dim,y_dim,U,V); 
 
-				/*if(t>=n1*dt_value){
-					write_vtkFile("file", n, xlength, ylength, imax, jmax, dx, dy, U, V, P);
+				if(t>=n1*dt_value){
+					output_uvp(U, V, P, il, ir, jb, jt, omg_i, omg_j, problemOutput, n1, dx, dy);
 					n1 = n1 + 1;
-				}*/
+				}
 				
 				t=t+dt;
 				n=n+1;
-				n1 = n1 + 1;
+				
 			}
 			printf("Exiting while loop for simulation : rank = %d in domain:%dx%d (main.c)\n \n",myrank, omg_i, omg_j);
 

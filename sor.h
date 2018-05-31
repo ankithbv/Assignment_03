@@ -12,8 +12,6 @@ void sor(
   double omg,
   double dx,
   double dy,
-  int    imax,
-  int    jmax,
   double **P,
   double **RS,
   double *res,
@@ -24,7 +22,9 @@ void sor(
   int rank_l,
   int rank_r,
   int rank_b,
-  int rank_t
+  int rank_t,
+  int imax,
+  int jmax
 );
 
 
