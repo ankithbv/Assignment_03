@@ -133,75 +133,88 @@ int *omg_i,int *omg_j,int num_proc)
 
 
 
-void pressure_comm(double **P,int il,int ir,int jb,int jt, int rank_l,int rank_r,int rank_b,int rank_t, double *bufSend,double *bufRecv, MPI_Status *status, int chunk)
+
+
+void pressure_comm(	double **P,
+					int il, int ir, 
+					int jb, int jt, 
+					int rank_l, int rank_r,
+					int rank_b, int rank_t,
+					double *bufSend,double *bufRecv,
+					MPI_Status *status, int chunk)
+/* This method exchanges pressure values between processes that treat adjacent sub-domains */ 
 {
-	int i,j;
 	int counter;
 	int x_dim = ir - il + 1;
-	int y_dim = jt - jb +1;
+	int y_dim = jt - jb + 1;
 
+	/* ---------------- Pressure: LEFT & RIGHT COMMUNICATION BEGINS ------------- */
+
+	/* Step a) Send to left - receive from right */
 	bufSend = (double*)malloc(y_dim*sizeof(double));
 	bufRecv = (double*)malloc(y_dim*sizeof(double));
 
-	if (rank_l != MPI_PROC_NULL) // send to left
+	if (rank_l != MPI_PROC_NULL) // Send to left
 	{
 		counter=0;
-		for(j=1; j<=y_dim; j++)
+		for(int j=1; j<=y_dim; j++)
 		{
 			bufSend[counter] = P[1][j];
 			counter++;
 		}
-		//bufSend[0] = P[1][1];
 		MPI_Send( bufSend, y_dim, MPI_DOUBLE, rank_l, 1, MPI_COMM_WORLD );
 	}
 
 
-	if (rank_r != MPI_PROC_NULL) //recieve from right and then send to right
+	if (rank_r != MPI_PROC_NULL) // Receive from right
 	{
 		MPI_Recv( bufRecv, y_dim, MPI_DOUBLE, rank_r, 1, MPI_COMM_WORLD, status );
 		counter=0;
-		for(j=1; j<=y_dim; j++)
+		for(int j=1; j<=y_dim; j++)
 		{
 			P[x_dim+1][j] = bufRecv[counter];
 			counter++;
 		}
-		//bufRecv[0] = P[ir+1][1];
 
-		counter=0;
-		for(j=1; j<=y_dim; j++)
+		/* Step b) Send to right and receive from left */
+		counter=0;  // Send to right
+		for(int j=1; j<=y_dim; j++)
 		{
 			bufSend[counter] = P[x_dim][j];
 			counter++;
 		}
-		//bufSend[0] = P[ir][1];
 		MPI_Send( bufSend, y_dim, MPI_DOUBLE, rank_r, 1, MPI_COMM_WORLD );
 	}
 
 
-	if (rank_l != MPI_PROC_NULL) //recieving from left 
+	if (rank_l != MPI_PROC_NULL) // Receive from left 
 	{
 		MPI_Recv(bufRecv, y_dim, MPI_DOUBLE, rank_l, 1, MPI_COMM_WORLD, status );
 		counter=0;
-		for(j=1; j<=y_dim; j++)
+		for(int j=1; j<=y_dim; j++)
 		{
 			P[0][j] = bufRecv[counter]; 
 			counter++;
 		}
-		//bufRecv[0] = P[0][1];
-
 	}
 
 	//destroy first
 	free(bufSend);
 	free(bufRecv);
+	/* ---------------- Pressure: LEFT & RIGHT COMMUNICATION ENDS ------------- */
 
+
+
+	/* ---------------- Pressure: TOP & BOTTOM COMMUNICATION BEGINS ------------- */
 	bufSend = (double*)malloc(x_dim*sizeof(double));
 	bufRecv = (double*)malloc(x_dim*sizeof(double));
 
-	if (rank_t != MPI_PROC_NULL) //send to the top
+
+	/* Step c) Send to top - receive from bottom */
+	if (rank_t != MPI_PROC_NULL) // send to the top
 	{
 		counter=0;
-		for(i=1; i<=x_dim; i++)
+		for(int i=1; i<=x_dim; i++)
 		{
 			bufSend[counter] = P[i][y_dim];
 			counter++;
@@ -210,18 +223,19 @@ void pressure_comm(double **P,int il,int ir,int jb,int jt, int rank_l,int rank_r
 	}
 
 
-	if (rank_b != MPI_PROC_NULL) //recieving from the bottom and then send to the bottom
+	if (rank_b != MPI_PROC_NULL) // Recieve from the bottom 	
 	{
 		MPI_Recv( bufRecv, x_dim, MPI_DOUBLE, rank_b, 1, MPI_COMM_WORLD, status );
 		counter=0;
-		for(i=1; i<=x_dim; i++)
+		for(int i=1; i<=x_dim; i++)
 		{
 			P[i][0] =bufRecv[counter];
 			counter++;
 		}
 
-		counter=0;
-		for(i=1; i<=x_dim; i++)
+		/* Step d) Send to the bottom - receive from the top */
+		counter=0; // Send to the bottom
+		for(int i=1; i<=x_dim; i++)
 		{
 			bufSend[counter] = P[i][1];
 			counter++;
@@ -229,11 +243,11 @@ void pressure_comm(double **P,int il,int ir,int jb,int jt, int rank_l,int rank_r
 		MPI_Send( bufSend, x_dim, MPI_DOUBLE, rank_b, 1, MPI_COMM_WORLD );
 	}
 
-	if (rank_t != MPI_PROC_NULL) //recieving from the top
+	if (rank_t != MPI_PROC_NULL) // Receive from the top
 	{
 		MPI_Recv( bufRecv, x_dim, MPI_DOUBLE, rank_t, 1, MPI_COMM_WORLD, status );
 		counter=0;
-		for(i=1; i<=x_dim; i++)
+		for(int i=1; i<=x_dim; i++)
 		{
 			P[i][y_dim+1] = bufRecv[counter];
 			counter++;
@@ -241,169 +255,185 @@ void pressure_comm(double **P,int il,int ir,int jb,int jt, int rank_l,int rank_r
 	}
 	free(bufSend);
 	free(bufRecv);
+	/* ----------------Pressure: TOP & BOTTOM COMMUNICATION ENDS ------------- */
 }
 
 
 
 
-void uv_comm (double**U,double**V,int il,int ir, int jb, int jt,int rank_l,int rank_r,int rank_b,int rank_t, double *bufSend,double *bufRecv, MPI_Status *status, int chunk)
+void uv_comm (	double**U, double**V, 
+				int il,int ir,
+				int jb, int jt, 
+				int rank_l, int rank_r,
+				int rank_b, int rank_t,
+				double *bufSend, double *bufRecv, 
+				MPI_Status *status, int chunk)
+/* This method exchanges velocity values U and V between processes that treat adjacent sub-domains */
 {
-	int i,j;
 	int x_dim = ir - il + 1;
 	int y_dim = jt - jb +1;
 	int counter;
 
-	bufSend = (double*)malloc(2*y_dim*sizeof(double));
-	bufRecv = (double*)malloc(2*y_dim*sizeof(double));
+	/* ---------------- U-V Velocity: LEFT & RIGHT COMMUNICATION BEGINS ------------- */
 
-	if (rank_l != MPI_PROC_NULL) //sending to left
+	bufSend = (double*)malloc((2*y_dim + 1)*sizeof(double));
+	bufRecv = (double*)malloc((2*y_dim + 1)*sizeof(double));
+
+	/* Step a) Send to left - receive from right */
+	if (rank_l != MPI_PROC_NULL) // Send to the left
 	{
 		counter=0;
-		for(j=1; j<=y_dim; j++)
+		for(int j=1; j<=y_dim; j++)
 		{
-			bufSend[counter] = U[2][j];
+			bufSend[counter] = U[1][j];
 			counter++;
 		}
-
-		for(j=1; j<=y_dim; j++)
+		for(int j=0; j<=y_dim; j++)
 		{
 			bufSend[counter] = V[1][j];
 			counter++;
 		}
-		MPI_Send( bufSend, 2*y_dim, MPI_DOUBLE, rank_l, 1, MPI_COMM_WORLD );
-
+		MPI_Send( bufSend, (2*y_dim + 1), MPI_DOUBLE, rank_l, 1, MPI_COMM_WORLD );
 	}
 
 
-	if (rank_r != MPI_PROC_NULL) //recieving from right and then sending to right
+	if (rank_r != MPI_PROC_NULL) // Receive from right
 	{
-		MPI_Recv( bufRecv, 2*y_dim, MPI_DOUBLE, rank_r, 1, MPI_COMM_WORLD, status );
+		MPI_Recv( bufRecv, (2*y_dim + 1), MPI_DOUBLE, rank_r, 1, MPI_COMM_WORLD, status );
 		counter=0;
-		for(j=1; j<=y_dim; j++)
+		for(int j=1; j<=y_dim; j++)
 		{
 			U[x_dim+1][j] = bufRecv[counter];
 			counter++;
 		}
-
-		for(j=1; j<=y_dim; j++)
+		for(int j=0; j<=y_dim; j++)
 		{
 			V[x_dim+1][j] = bufRecv[counter];
 			counter++;
 		}
-		counter=0;
-		for(j=1; j<=y_dim; j++)
+
+
+		/* Step b) Send to right - receive from left */
+		counter=0; // Send to right
+		for(int j=1; j<=y_dim; j++)
 		{
-			bufSend[counter] = U[x_dim-1][j];
+			bufSend[counter] = U[x_dim][j];
 			counter++;
 		}
-		for(j=1; j<=y_dim; j++)
+		for(int j=0; j<=y_dim; j++)
 		{
 			bufSend[counter] = V[x_dim][j];
 			counter++;
 		}
-		MPI_Send( bufSend, 2*y_dim, MPI_DOUBLE, rank_r, 1, MPI_COMM_WORLD );
+		MPI_Send( bufSend, (2*y_dim + 1), MPI_DOUBLE, rank_r, 1, MPI_COMM_WORLD );
 	}
 
 
-	if (rank_l != MPI_PROC_NULL) //recieving from left
+	if (rank_l != MPI_PROC_NULL) // Receive from left
 	{
-		MPI_Recv(bufRecv, 2*y_dim, MPI_DOUBLE, rank_l, 1, MPI_COMM_WORLD, status );
+		MPI_Recv(bufRecv, (2*y_dim + 1), MPI_DOUBLE, rank_l, 1, MPI_COMM_WORLD, status );
 
 		counter=0;
-		for(j=1; j<=y_dim; j++)
+		for(int j=1; j<=y_dim; j++)
 		{
 			U[0][j] = bufRecv[counter] ;
 			counter++;
 		}
-		for(j=1; j<=y_dim; j++)
+		for(int j=0; j<=y_dim; j++)
 		{
-			bufRecv[counter] = V[0][j];
+			V[0][j] = bufRecv[counter];
 			counter++;
 		}
-
 	}
 
 	//destroy first
 	free(bufSend);
 	free(bufRecv);
+	/* ---------------- U-V Velocity: LEFT & RIGHT COMMUNICATION ENDS ------------- */
 
-	bufSend = (double*)malloc(2*x_dim*sizeof(double));
-	bufRecv = (double*)malloc(2*x_dim*sizeof(double));
 
-	if (rank_t != MPI_PROC_NULL) //send to top
+
+
+
+
+	
+	/* ---------------- U-V Velocity: TOP & BOTTOM COMMUNICATION BEGINS ------------- */
+	bufSend = (double*)malloc((2*x_dim + 1)*sizeof(double));
+	bufRecv = (double*)malloc((2*x_dim + 1)*sizeof(double));
+
+	/* Step c) Send to top - receive from bottom */
+	if (rank_t != MPI_PROC_NULL) // Send to top
 	{
 		counter=0;
-		for(i=1; i<=x_dim; i++)
+		for(int i=0; i<=x_dim; i++)
 		{
 			bufSend[counter] = U[i][y_dim];
 			counter++;
 		}
 
-		for(i=1; i<=x_dim; i++)
+		for(int i=1; i<=x_dim; i++)
 		{
-			bufSend[counter] = V[i][y_dim-1];
+			bufSend[counter] = V[i][y_dim];
 			counter++;
 		}
 
-		MPI_Send( bufSend, 2*x_dim, MPI_DOUBLE, rank_t, 1, MPI_COMM_WORLD );
+		MPI_Send( bufSend, (2*x_dim + 1), MPI_DOUBLE, rank_t, 1, MPI_COMM_WORLD );
 	}
 
 
-	if (rank_b != MPI_PROC_NULL) //recieve from bottom and then send to the bottom
+	if (rank_b != MPI_PROC_NULL) // Recieve from bottom 
 	{
-		MPI_Recv( bufRecv, 2*x_dim, MPI_DOUBLE, rank_b, 1, MPI_COMM_WORLD, status );
+		MPI_Recv( bufRecv, (2*x_dim + 1), MPI_DOUBLE, rank_b, 1, MPI_COMM_WORLD, status );
 		counter=0;
-		for(i=1; i<=x_dim; i++)
+		for(int i=0; i<=x_dim; i++)
 		{
 			U[i][0] = bufRecv[counter];
 			counter++;
 		}
-
-		for(i=1; i<=x_dim; i++)
+		for(int i=1; i<=x_dim; i++)
 		{
 			V[i][0] = bufRecv[counter];
 			counter++;
 		}
 
 
-		counter=0;
-		for(i=1; i<=x_dim; i++)
+		/* Step d) Send to bottom - receive from top */
+		counter=0; // Send to bottom
+		for(int i=0; i<=x_dim; i++)
 		{
 			bufSend[counter] = U[i][1];
 			counter++;
 		}
-
-		for(i=1; i<=x_dim; i++)
+		for(int i=1; i<=x_dim; i++)
 		{
-			bufSend[counter] = V[i][2];
+			bufSend[counter] = V[i][1];
 			counter++;
 		}
-		MPI_Send( bufSend, 2*x_dim, MPI_DOUBLE, rank_b, 1, MPI_COMM_WORLD );
+		MPI_Send( bufSend, (2*x_dim + 1), MPI_DOUBLE, rank_b, 1, MPI_COMM_WORLD );
 
 	}
 
-	if (rank_t != MPI_PROC_NULL) //recieving from top
+	if (rank_t != MPI_PROC_NULL) // Recieve from topf
 	{
 
-		MPI_Recv( bufRecv, 2*x_dim, MPI_DOUBLE, rank_t, 1, MPI_COMM_WORLD, status );
+		MPI_Recv( bufRecv, (2*x_dim + 1), MPI_DOUBLE, rank_t, 1, MPI_COMM_WORLD, status );
 
 		counter=0;
-		for(i=1; i<=x_dim; i++)
+		for(int i=0; i<=x_dim; i++)
 		{
 			U[i][y_dim+1] = bufRecv[counter];
 			counter++;
 		}
-
-		for(i=1; i<=x_dim; i++)
+		for(int i=1; i<=x_dim; i++)
 		{
 			V[i][y_dim+1] = bufRecv[counter];
 			counter++;
 		}
 
 	}
+
 	free(bufSend);
 	free(bufRecv);
-
 }
-
+/* ---------------- U-V Velocity: TOP & BOTTOM COMMUNICATION ENDS ------------- */
 
