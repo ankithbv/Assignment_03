@@ -181,7 +181,7 @@ int main(int argn, char** args){
 				printf("boundaryvalues : rank = %d : (main.c)\n ",myrank);
 				boundaryvalues(x_dim, y_dim, U, V, rank_l, rank_r, rank_b, rank_t);		 //Setting the boundary values for the next time step.
 				printf("calculating Fg : rank = %d : (main.c)\n ",myrank);
-				calculate_fg(Re,GX,GY,alpha,dt,dx,dy,x_dim,y_dim,U,V,F,G);			 //Determining the values of F and G (diffusion and confection).
+				calculate_fg(Re,GX,GY,alpha,dt,dx,dy,x_dim,y_dim,U,V,F,G,il, ir, jb, jt, rank_l, rank_r, rank_b, rank_t);//Determining the values of F and G (diffusion and confection).
 				printf("calculating RS : rank = %d : (main.c)\n ",myrank);
 				calculate_rs(dt,dx,dy,x_dim,y_dim,F,G,RS);					 //Calculating the right hand side of the pressure equation.
 				

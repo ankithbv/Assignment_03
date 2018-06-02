@@ -108,7 +108,7 @@ void write_uvpPointCoordinates(FILE *fp, int origin_i, int origin_j, int imax, i
 void output_uvp(double **U, double **V, double **P, int il, int ir, int jb, int jt, int omg_i, int omg_j, char *outputfile, int t,double dx, double dy)
 {
   
- // dx = 1, dy = 1;
+  dx = 1, dy = 1;
   FILE *fp = NULL;
 
   char file_name[80];

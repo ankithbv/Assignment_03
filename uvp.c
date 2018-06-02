@@ -16,18 +16,35 @@ void calculate_fg(
   double **U,
   double **V,
   double **F,
-  double **G
+  double **G,
+  int il,
+  int ir,
+  int jb,
+  int jt,
+  int rank_l,
+  int rank_r,
+  int rank_b,
+  int rank_t
 )
 {
 		double a, b,c,d,du2x2,du2y2,du2dx,duvy,dv2y2,dv2x2,dv2dy,duvx;
-		for (int j=1;j<=jmax;j++){
-			F[0][j]=U[0][j];                                                      //Boundary conditions for F
-			F[imax][j]=U[imax][j];
+		for(int i = 1; i < imax+1; i++)
+		{	//if (rank_b == MPI_PROC_NULL){
+				G[i][0] = V[i][0];
+			//}
+			//if (rank_t == MPI_PROC_NULL){
+				G[i][jmax] = V[i][jmax];
+			//}
 		}
 
-		for(int i=1;i<=imax;i++){
-			G[i][0]=V[i][0];                                                      // Boundary conditions for G
-			G[i][jmax]=V[i][jmax];
+		for(int j = 1; j < jmax+1; j++)
+		{
+			//if (rank_l == MPI_PROC_NULL){
+				F[0][j] = U[0][j];
+			//}
+			//if (rank_r == MPI_PROC_NULL){
+				F[imax][j] = U[imax][j];
+			//}
 		}
 		
 		for(int i=1; i<imax; i++){
